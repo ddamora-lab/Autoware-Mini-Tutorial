@@ -23,9 +23,6 @@ class Localizer:
         self.crs_utm = CRS.from_epsg(25835)
         self.utm_projection = Proj(self.crs_utm)
 
-        # TODO 2: Create a coordinate transformer using self.crs_wgs84 and self.crs_utm.
-        #         Use Transformer.from_crs(). Then transform the origin point (utm_origin_lat,
-        #         utm_origin_lon) and store results as self.origin_x and self.origin_y.
         self.transformer = Transformer.from_crs(self.crs_wgs84, self.crs_utm)
         self.origin_x, self.origin_y = self.transformer.transform(utm_origin_lat, utm_origin_lon)
 
@@ -39,7 +36,9 @@ class Localizer:
 
     def transform_coordinates(self, msg):
         x_current, y_current = self.transformer.transform(msg.latitude, msg.longitude)
-        x_local, y_local = (x_current - self.origin_x, y_current - self.origin_y)
+        x_local = x_current - self.origin_x
+        y_local = y_current - self.origin_y
+        z_local = msg.height - self.undulation
 
         azimuth_correction = self.utm_projection.get_factors(msg.longitude, msg.latitude).meridian_convergence
         yaw = self.convert_azimuth_to_yaw(math.radians(msg.azimuth - azimuth_correction))
@@ -51,7 +50,7 @@ class Localizer:
         current_pose_msg.header.frame_id = "map"
         current_pose_msg.pose.position.x = x_local
         current_pose_msg.pose.position.y = y_local
-        current_pose_msg.pose.position.z = msg.height - self.undulation
+        current_pose_msg.pose.position.z = z_local
         current_pose_msg.pose.orientation = orientation
         self.current_pose_pub.publish(current_pose_msg)
 
@@ -66,7 +65,9 @@ class Localizer:
         t.header.stamp = msg.header.stamp
         t.header.frame_id = "map"
         t.child_frame_id = "base_link"
-        t.transform.translation = current_pose_msg.pose.position
+        t.transform.translation.x = x_local
+        t.transform.translation.y = y_local
+        t.transform.translation.z = z_local
         t.transform.rotation = orientation
         self.br.sendTransform(t)
 
