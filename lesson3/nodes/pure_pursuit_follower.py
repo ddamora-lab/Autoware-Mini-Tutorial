@@ -75,10 +75,8 @@ class PurePursuitFollower:
 
             linear_acceleration = 0.0
 
-            if self.distance_to_velocity_interpolator is not None:
-                linear_velocity = float(self.distance_to_velocity_interpolator(d_ego_from_path_start))
-            else:
-                linear_velocity = 0.0
+            linear_velocity = float(self.distance_to_velocity_interpolator(d_ego_from_path_start))
+
 
         vehicle_cmd = VehicleCommand()
         vehicle_cmd.header.stamp = msg.header.stamp
