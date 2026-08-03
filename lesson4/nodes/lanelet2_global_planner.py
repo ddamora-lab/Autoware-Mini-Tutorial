@@ -115,20 +115,26 @@ class GlobalPlanner:
                 waypoints.append(waypoint)
 
         if len(waypoints) > 1 and self.goal_point is not None:
-            last_lanelet_waypoints = waypoints[last_lanelet_start_idx:]
+            search_start_idx = max(last_lanelet_start_idx - 1, 0)
+            last_lanelet_waypoints = waypoints[search_start_idx:]
             xy = np.array([(w.position.x, w.position.y) for w in last_lanelet_waypoints])
             lanelet_linestring = LineString(xy)
             d_goal = lanelet_linestring.project(Point(self.goal_point.x, self.goal_point.y))
             goal_point_on_path = lanelet_linestring.interpolate(d_goal)
 
-            # Snap to the closest existing waypoint rather than the interpolated point itself,
-            # so the path always ends on a real sampled point on the road, never off it
-            dist_to_goal_point = np.linalg.norm(xy - np.array([goal_point_on_path.x, goal_point_on_path.y]), axis=1)
-            local_idx = int(np.argmin(dist_to_goal_point))
-            waypoints = waypoints[:last_lanelet_start_idx + local_idx + 1]
+            distances = np.cumsum(np.r_[0.0, np.linalg.norm(np.diff(xy, axis=0), axis=1)])
+            local_idx = int(np.searchsorted(distances, d_goal))
+            ref_wp = last_lanelet_waypoints[min(local_idx, len(last_lanelet_waypoints) - 1)]
 
-            last_wp = waypoints[-1]
-            self.goal_point = BasicPoint2d(last_wp.position.x, last_wp.position.y)
+            waypoints = waypoints[:search_start_idx + local_idx]
+            goal_wp = Waypoint()
+            goal_wp.position.x = goal_point_on_path.x
+            goal_wp.position.y = goal_point_on_path.y
+            goal_wp.position.z = ref_wp.position.z
+            goal_wp.speed = ref_wp.speed
+            waypoints.append(goal_wp)
+
+            self.goal_point = BasicPoint2d(goal_point_on_path.x, goal_point_on_path.y)
 
         return waypoints
 
