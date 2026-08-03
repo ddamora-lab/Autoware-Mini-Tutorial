@@ -93,17 +93,18 @@ class GlobalPlanner:
 
     def convert_laneletseq_to_waypoints_list(self, laneletseq):
         waypoints = []
+        last_lanelet_start_idx = 0
 
         for j, lanelet in enumerate(laneletseq):
-            # Get speed from lanelet attribute or use global speed limit. The speed limit is in km/h, convert to m/s for the Waypoint message.
             speed_ref = self.speed_limit / 3.6
             if 'speed_ref' in lanelet.attributes:
                 speed_ref = float(lanelet.attributes['speed_ref']) / 3.6
             speed = min(self.speed_limit / 3.6, speed_ref)
 
-            # Iterate through the centerline points and create waypoints. 
+            if j == len(laneletseq) - 1:
+                last_lanelet_start_idx = len(waypoints)
+
             for i, point in enumerate(lanelet.centerline):
-                # Skip first point of every lanelet except the very first (endpoints overlap)
                 if i == 0 and j != 0:
                     continue
                 waypoint = Waypoint()
@@ -113,25 +114,21 @@ class GlobalPlanner:
                 waypoint.speed = speed
                 waypoints.append(waypoint)
 
-        # Cut the path at the point closest to the goal, so that the path end and the goal coincide
         if len(waypoints) > 1 and self.goal_point is not None:
-            xy = np.array([(w.position.x, w.position.y) for w in waypoints])
-            path_linestring = LineString(xy)
-            d_goal_from_path_start = path_linestring.project(Point(self.goal_point.x, self.goal_point.y))
-            goal_point_on_path = path_linestring.interpolate(d_goal_from_path_start)
+            last_lanelet_waypoints = waypoints[last_lanelet_start_idx:]
+            xy = np.array([(w.position.x, w.position.y) for w in last_lanelet_waypoints])
+            lanelet_linestring = LineString(xy)
+            d_goal = lanelet_linestring.project(Point(self.goal_point.x, self.goal_point.y))
+            goal_point_on_path = lanelet_linestring.interpolate(d_goal)
 
-            # Distance of every waypoint along the path - used to find where the goal falls
-            distances = np.cumsum(np.r_[0.0, np.linalg.norm(np.diff(xy, axis=0), axis=1)])
+            # Snap to the closest existing waypoint rather than the interpolated point itself,
+            # so the path always ends on a real sampled point on the road, never off it
+            dist_to_goal_point = np.linalg.norm(xy - np.array([goal_point_on_path.x, goal_point_on_path.y]), axis=1)
+            local_idx = int(np.argmin(dist_to_goal_point))
+            waypoints = waypoints[:last_lanelet_start_idx + local_idx + 1]
 
-            # First waypoint at or beyond the goal: move it onto the goal and drop everything after it
-            last_idx = int(np.searchsorted(distances, d_goal_from_path_start))
-            last_idx = min(max(last_idx, 1), len(waypoints) - 1)
-            waypoints = waypoints[:last_idx + 1]
-            waypoints[-1].position.x = goal_point_on_path.x
-            waypoints[-1].position.y = goal_point_on_path.y
-
-            # Keep the goal used by the distance check in sync with the actual path end
-            self.goal_point = BasicPoint2d(goal_point_on_path.x, goal_point_on_path.y)
+            last_wp = waypoints[-1]
+            self.goal_point = BasicPoint2d(last_wp.position.x, last_wp.position.y)
 
         return waypoints
 
