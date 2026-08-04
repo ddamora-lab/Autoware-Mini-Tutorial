@@ -64,7 +64,7 @@ class ClusterDetector:
                 continue
 
             # Calculate centroid from points3d
-            centroid = [float(np.mean(points3d[:, 0])), float(np.mean(points3d[:, 1])), float(np.mean(points3d[:, 2]))]
+            centroid = np.mean(points3d[:, :3], axis=0)
 
             # Calculate convex hull using 2D points. Z-axis for the hull is set to the minimum z of the cluster (bottom of the object)
             points_2d = MultiPoint(points3d[:, :2])

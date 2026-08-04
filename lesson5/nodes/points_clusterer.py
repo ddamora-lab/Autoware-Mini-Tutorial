@@ -29,9 +29,9 @@ class PointsClusterer:
 
         data = numpify(msg)
         points = structured_to_unstructured(data[['x', 'y', 'z']], dtype=np.float32)
-        labels = self.clusterer.fit_predict(points)
         if len(points) == 0:
             return
+        labels = self.clusterer.fit_predict(points)
 
         points_labeled = np.hstack((points, labels.reshape(-1, 1)))
         points_labeled = points_labeled[points_labeled[:, 3] != -1]
