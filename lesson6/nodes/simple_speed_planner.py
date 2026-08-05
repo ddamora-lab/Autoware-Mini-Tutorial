@@ -78,7 +78,9 @@ class SimpleSpeedPlanner:
             collision_points_shapely = shapely.points(structured_to_unstructured(collision_points[['x', 'y', 'z']]))
             collision_point_distances = np.array([local_path_linestring.project(cp) for cp in collision_points_shapely])
 
-            collision_point_braking_distances = self.distance_to_car_front + collision_points['distance_to_stop']
+            collision_point_braking_distances = collision_points['distance_to_stop']
+            # from the car nose to the collision point, and from the base link to the stopping point
+            deceleration_distances = collision_point_distances - self.distance_to_car_front
             stopping_point_distances = collision_point_distances - collision_point_braking_distances
 
             collision_point_path_headings = [self.get_heading_at_distance(local_path_linestring, d) for d in collision_point_distances]
@@ -86,14 +88,14 @@ class SimpleSpeedPlanner:
                                         for heading, (vx, vy, vz) in zip(collision_point_path_headings, collision_points[['vx', 'vy', 'vz']])])
 
             # the reaction time margin only makes the ego brake earlier, it does not move the stopping point
-            target_distances = stopping_point_distances - self.braking_reaction_time * np.abs(collision_point_speeds)
+            target_distances = deceleration_distances - collision_point_braking_distances - self.braking_reaction_time * np.abs(collision_point_speeds)
             approaching_speeds = np.minimum(collision_point_speeds, 0)
             calculated_target_velocities = np.maximum(0,
                 approaching_speeds + np.sqrt(np.maximum(0,
                     collision_point_speeds ** 2 + 2 * self.default_deceleration * target_distances)))
 
             idx = np.argmin(calculated_target_velocities)
-            target_object_distance = collision_point_distances[idx] - self.distance_to_car_front
+            target_object_distance = deceleration_distances[idx]
             target_object_speed = collision_point_speeds[idx]
             collision_point_category = collision_points[idx]["category"]
             stopping_point_distance = stopping_point_distances[idx]

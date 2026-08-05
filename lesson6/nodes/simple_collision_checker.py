@@ -87,15 +87,19 @@ class SimpleCollisionChecker:
                     intersection = local_path_buffer.intersection(object_polygon)
                     intersection_points = shapely.get_coordinates(intersection)
 
+                    # the ego follows a moving object, but stops for a standing one
+                    object_speed = math.hypot(obj.velocity.x, obj.velocity.y)
+                    category = 4 if object_speed > self.stopped_speed_limit else 3
+
                     for x, y in intersection_points:
-                        collision_points = np.append(collision_points, np.array([(x, y, 0.0, obj.velocity.x, obj.velocity.y, 0.0, self.braking_safety_distance_obstacle, np.inf, 3
+                        collision_points = np.append(collision_points, np.array([(x, y, obj.centroid.z, obj.velocity.x, obj.velocity.y, obj.velocity.z, self.braking_safety_distance_obstacle, np.inf, category
                             )], dtype=DTYPE))
 
         if goal_point is not None:
             goal_point_shapely = shapely.Point(goal_point.x, goal_point.y)
             if local_path_buffer.intersects(goal_point_shapely.buffer(0.1)):
                 collision_points = np.append(collision_points, np.array(
-                    [(goal_point.x, goal_point.y, 0.0, 0.0, 0.0, 0.0, self.braking_safety_distance_goal, np.inf, 1)
+                    [(goal_point.x, goal_point.y, goal_point.z, 0.0, 0.0, 0.0, self.braking_safety_distance_goal, np.inf, 1)
                     ], dtype=DTYPE))
 
         # TODO 9 (lesson 7): add stop line collision points for red traffic lights
