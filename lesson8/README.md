@@ -65,11 +65,31 @@ Your framework from the previous lessons is a simplified one. Remember all limit
 4. Fill in the three descriptions below: what happens in the scenario, how your framework fails, and what change to the framework would fix it. Add screenshots if needed.
 5. Commit and push everything, and be ready to demonstrate your failure cases at the practice session
 
+All three scenarios are in [scenarios/](scenarios/).
+
 ##### Failure case 1
-...
+
+[`scenarios/failure_case_1.json`](scenarios/failure_case_1.json) - a vehicle is stopped in the ego
+lane with the opposite lane free, and the ego stops behind it and never moves again, because the
+framework cannot overtake.
+
+*Proposed fix:* implement overtaking in the local planner, which today can only change the speed
+along the path and never the path itself.
 
 ##### Failure case 2
-...
+
+[`scenarios/failure_case_2.json`](scenarios/failure_case_2.json) - a pedestrian walks out from
+behind a stopped bus and the ego hits him, because it never slows down for a stopped vehicle that
+hides part of the road.
+
+*Proposed fix:* reduce the speed when passing a stopped bus or any vehicle people may step out from.
 
 ##### Failure case 3
-...
+
+[`scenarios/failure_case_3.json`](scenarios/failure_case_3.json) - When the traffic light turns red when the ego is near and going too fast,
+it cannot slow down enough to stop before the line or cannot stop at all.
+Instead, a human would stop sooner or clear the intersection
+
+*Proposed fix:* Increase the vehicle's deceleration first.
+Furthermore, when the stop line is already too close to stop safely,
+the vehicle should continue to move forward to clear the intersection..
